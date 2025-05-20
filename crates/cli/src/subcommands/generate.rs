@@ -270,8 +270,8 @@ fn extract_descriptions(wasm_file: &Path) -> anyhow::Result<ModuleDef> {
     // println!("\n===== RAW MODULE DEF JSON =====\n");
     // println!("{:#?}", raw_module);
 
-    // // Convert to rich type-safe ModuleDef
-    // let module: ModuleDef = raw_module.try_into()?;
+    // Convert to rich type-safe ModuleDef
+    let module: ModuleDef = raw_module.try_into()?;
 
     // // Print the structured version used for codegen
     // println!("\n===== PARSED MODULE DEF STRUCT =====\n");
