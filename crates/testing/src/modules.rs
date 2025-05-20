@@ -298,3 +298,17 @@ impl ModuleLanguage for Rust {
         &MODULE
     }
 }
+
+pub struct UnrealCpp;
+
+impl ModuleLanguage for UnrealCpp {
+    const NAME: &'static str = "unrealcpp";
+
+    fn get_module() -> &'static CompiledModule {
+        lazy_static::lazy_static! {
+            pub static ref MODULE: CompiledModule = CompiledModule::compile("benchmarks-cs", COMPILATION_MODE);
+        }
+
+        &MODULE
+    }
+}

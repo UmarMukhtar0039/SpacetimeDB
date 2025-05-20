@@ -5,7 +5,7 @@ use clap::parser::ValueSource;
 use clap::Arg;
 use clap::ArgAction::Set;
 use fs_err as fs;
-use spacetimedb_codegen::{generate, Csharp, Lang, Rust, TypeScript, AUTO_GENERATED_PREFIX};
+use spacetimedb_codegen::{generate, Csharp, Lang, Rust, TypeScript, UnrealCpp, AUTO_GENERATED_PREFIX};
 use spacetimedb_lib::de::serde::DeserializeWrapper;
 use spacetimedb_lib::{sats, RawModuleDef};
 use spacetimedb_schema;
@@ -136,10 +136,15 @@ pub async fn exec_ex(
     let mut paths = BTreeSet::new();
 
     let csharp_lang;
+    let unreal_cpp_lang;
     let gen_lang = match lang {
         Language::Csharp => {
             csharp_lang = Csharp { namespace };
             &csharp_lang as &dyn Lang
+        }
+        Language::UnrealCpp => {
+            unreal_cpp_lang = UnrealCpp {};
+            &unreal_cpp_lang as &dyn Lang
         }
         Language::Rust => &Rust,
         Language::TypeScript => &TypeScript,
@@ -147,7 +152,6 @@ pub async fn exec_ex(
 
     for (fname, code) in generate(&module, gen_lang) {
         let fname = Path::new(&fname);
-        // If a generator asks for a file in a subdirectory, create the subdirectory first.
         if let Some(parent) = fname.parent().filter(|p| !p.as_os_str().is_empty()) {
             fs::create_dir_all(out_dir.join(parent))?;
         }
@@ -213,17 +217,19 @@ pub enum Language {
     Csharp,
     TypeScript,
     Rust,
+    UnrealCpp,
 }
 
 impl clap::ValueEnum for Language {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Csharp, Self::TypeScript, Self::Rust]
+        &[Self::Csharp, Self::TypeScript, Self::Rust, Self::UnrealCpp]
     }
     fn to_possible_value(&self) -> Option<PossibleValue> {
         Some(match self {
             Self::Csharp => clap::builder::PossibleValue::new("csharp").aliases(["c#", "cs"]),
             Self::TypeScript => clap::builder::PossibleValue::new("typescript").aliases(["ts", "TS"]),
             Self::Rust => clap::builder::PossibleValue::new("rust").aliases(["rs", "RS"]),
+            Self::UnrealCpp => PossibleValue::new("unrealcpp").aliases(["uecpp", "ue5cpp", "unreal"]),
         })
     }
 }
@@ -236,8 +242,10 @@ impl Language {
             Language::TypeScript => {
                 // TODO: implement formatting.
             }
+            Language::UnrealCpp => {
+                // TODO: implement formatting.
+            }
         }
-
         Ok(())
     }
 }
@@ -251,6 +259,23 @@ fn extract_descriptions(wasm_file: &Path) -> anyhow::Result<ModuleDef> {
         .stdout(Stdio::piped())
         .spawn()
         .with_context(|| format!("failed to spawn {}", bin_path.display()))?;
-    let sats::serde::SerdeWrapper::<RawModuleDef>(module) = serde_json::from_reader(child.stdout.unwrap())?;
-    Ok(module.try_into()?)
+
+    // Deserialize RawModuleDef
+    let wrapper: sats::serde::SerdeWrapper<RawModuleDef> =
+        serde_json::from_reader(child.stdout.unwrap())?;
+
+    let raw_module: RawModuleDef = wrapper.0;
+
+    // Print raw JSON version (original embedded structure)
+    // println!("\n===== RAW MODULE DEF JSON =====\n");
+    // println!("{:#?}", raw_module);
+
+    // // Convert to rich type-safe ModuleDef
+    // let module: ModuleDef = raw_module.try_into()?;
+
+    // // Print the structured version used for codegen
+    // println!("\n===== PARSED MODULE DEF STRUCT =====\n");
+    // println!("{:#?}", module);
+
+    Ok(module)
 }
