@@ -143,7 +143,7 @@ pub async fn exec_ex(
             &csharp_lang as &dyn Lang
         }
         Language::UnrealCpp => {
-            unreal_cpp_lang = UnrealCpp {};
+            unreal_cpp_lang = UnrealCpp { module_name: "" };
             &unreal_cpp_lang as &dyn Lang
         }
         Language::Rust => &Rust,
