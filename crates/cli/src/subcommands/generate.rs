@@ -144,7 +144,7 @@ pub async fn exec_ex(
         }
         Language::UnrealCpp => {
             unreal_cpp_lang = UnrealCpp {  };
-            &unreal_cpp_lang
+            &unreal_cpp_lang as &dyn Lang
         }
         Language::Rust => &Rust,
         Language::TypeScript => &TypeScript,

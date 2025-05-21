@@ -2,8 +2,61 @@ use std::ops::Deref;
 use crate::Lang;
 use spacetimedb_schema::def::{ModuleDef, TableDef, ReducerDef, TypeDef};
 use crate::code_indenter::CodeIndenter;
+use crate::util::print_auto_generated_file_comment;
 
 pub struct UnrealCpp;
+
+struct UnrealCppAutogen {
+    output: CodeIndenter<String>,
+}
+
+impl Deref for UnrealCppAutogen {
+    type Target = CodeIndenter<String>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.output
+    }
+}
+
+impl std::ops::DerefMut for UnrealCppAutogen {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.output
+    }
+}
+
+impl UnrealCppAutogen {
+    fn new_header(extra_includes: &[&str]) -> Self {
+        let mut output = CodeIndenter::new(String::new(), "    ");
+
+        print_auto_generated_file_comment(&mut output);
+
+        writeln!(output, "#pragma once");
+        writeln!(output, "#include \"CoreMinimal.h\"");
+        for include in extra_includes {
+            writeln!(output, "#include \"{include}\"");
+        }
+        writeln!(output);
+
+        Self { output }
+    }
+
+    fn new_cpp(extra_includes: &[&str]) -> Self {
+        let mut output = CodeIndenter::new(String::new(), "    ");
+
+        print_auto_generated_file_comment(&mut output);
+
+        for include in extra_includes {
+            writeln!(output, "#include \"{include}\"");
+        }
+        writeln!(output);
+
+        Self { output }
+    }
+
+    fn into_inner(self) -> String {
+        self.output.into_inner()
+    }
+}
 
 impl Lang for UnrealCpp {
     fn table_filename(&self, _module: &ModuleDef, table: &TableDef) -> String {
@@ -20,12 +73,8 @@ impl Lang for UnrealCpp {
     }
 
     fn generate_table(&self, _module: &ModuleDef, table: &TableDef) -> String {
-        let mut output = CodeIndenter::new(String::new(), "    ");
+        let mut output = UnrealCppAutogen::new_header(&[]);
         let struct_name = format!("F{}", table.name.deref());
-
-        writeln!(output, "#pragma once");
-        writeln!(output, "#include \"CoreMinimal.h\"");
-        writeln!(output);
         writeln!(output, "USTRUCT(BlueprintType)");
         writeln!(output, "struct {}", struct_name);
         writeln!(output, "{{");
@@ -39,11 +88,7 @@ impl Lang for UnrealCpp {
     fn generate_type(&self, module: &ModuleDef, typ: &TypeDef) -> String {
         let name = typ.name.name_segments().last().map(|id| id.deref()).unwrap_or("Unnamed");
         let struct_name = format!("F{}", name);
-        let mut output = CodeIndenter::new(String::new(), "    ");
-
-        writeln!(output, "#pragma once");
-        writeln!(output, "#include \"CoreMinimal.h\"");
-        writeln!(output);
+        let mut output = UnrealCppAutogen::new_header(&[]);
         writeln!(output, "USTRUCT(BlueprintType)");
         writeln!(output, "struct {}", struct_name);
         writeln!(output, "{{");
@@ -68,15 +113,12 @@ impl Lang for UnrealCpp {
     }
 
     fn generate_reducer(&self, _module: &ModuleDef, reducer: &ReducerDef) -> String {
-        let mut header = CodeIndenter::new(String::new(), "    ");
+        let mut header = UnrealCppAutogen::new_header(&[]);
 
         let reducer_name = reducer.name.deref();
         let class_name = "USpacetimeReducers";
         let func_name = format!("CallReducer_{}", reducer_name);
 
-        writeln!(header, "#pragma once");
-        writeln!(header, "#include \"CoreMinimal.h\"");
-        writeln!(header);
         writeln!(header, "UCLASS()");
         writeln!(header, "class {} : public UObject", class_name);
         writeln!(header, "{{");
@@ -103,10 +145,7 @@ impl Lang for UnrealCpp {
     fn generate_globals(&self, module: &ModuleDef) -> Vec<(String, String)> {
         let mut files = vec![];
 
-        let mut header = CodeIndenter::new(String::new(), "    ");
-        writeln!(header, "#pragma once");
-        writeln!(header, "#include \"CoreMinimal.h\"");
-        writeln!(header);
+        let mut header = UnrealCppAutogen::new_header(&[]);
         writeln!(header, "// Auto-generated SpacetimeDB client globals for Unreal Engine");
         writeln!(header);
         writeln!(header, "class FSpacetimeDBClientGlobals {{");
@@ -117,9 +156,7 @@ impl Lang for UnrealCpp {
         writeln!(header, "}};");
         files.push(("SpacetimeDBClientGlobals.generated.h".to_owned(), header.into_inner()));
 
-        let mut cpp = CodeIndenter::new(String::new(), "    ");
-        writeln!(cpp, "#include \"SpacetimeDBClientGlobals.generated.h\"");
-        writeln!(cpp);
+        let mut cpp = UnrealCppAutogen::new_cpp(&["SpacetimeDBClientGlobals.generated.h"]);
         writeln!(cpp, "FString FSpacetimeDBClientGlobals::AuthTokenPath = \"\";");
         writeln!(cpp, "FString FSpacetimeDBClientGlobals::HostURL = \"\";");
         writeln!(cpp, "FString FSpacetimeDBClientGlobals::DbName = \"\";");
@@ -127,8 +164,8 @@ impl Lang for UnrealCpp {
 
         for reducer in module.reducers() {
             let reducer_name = reducer.name.deref();
-            let mut cpp = CodeIndenter::new(String::new(), "    ");
-            writeln!(cpp, "#include \"Reducers/{}.generated.h\"", reducer_name);
+            let include = format!("Reducers/{}.generated.h", reducer_name);
+            let mut cpp = UnrealCppAutogen::new_cpp(&[&include]);
             write!(cpp, "void USpacetimeReducers::CallReducer_{}(", reducer_name);
             let mut first = true;
             for (param, ty) in &reducer.params_for_generate.elements {
