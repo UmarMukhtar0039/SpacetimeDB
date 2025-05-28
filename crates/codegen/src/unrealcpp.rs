@@ -38,7 +38,7 @@ impl Lang for UnrealCpp {
         let self_header = table.name.deref().to_case(Case::Pascal) + "Table";
 
         let mut output = UnrealCppAutogen::new(&[
-            "SpacetimeRemoteTableHandle.h",
+            "SpacetimeRemoteTableHandle.g.h",
             // TODO: Client includes
             ], &self_header
         );
@@ -58,7 +58,7 @@ impl Lang for UnrealCpp {
         writeln!(output);
         writeln!(output, "protected:");
         writeln!(output,
-            "    virtual const TCHAR* GetRemoteTableName() const override;"
+            "    virtual FString GetRemoteTableName() const override;"
         );
         writeln!(output, "    using FRow = {};", row_struct); // TODO: Do we need this?
         writeln!(output);
@@ -301,7 +301,7 @@ impl Lang for UnrealCpp {
         for table in module.tables() {
             let snake  = table.name.deref();                 // "message"
             let pascal = snake.to_case(Case::Pascal);        // "Message"
-            let handle = format!("U{}Handle", pascal);      // "UMessageHandle"
+            let handle = format!("U{}Table", pascal);      // "UMessageTable"
 
             // Create the implementation (cpp) file for this handle
             let header_include = format!("Tables/{}Table.g.h", pascal);
@@ -436,14 +436,13 @@ fn cpp_ty_fmt<'a>(module: &'a ModuleDef, ty: &'a AlgebraicTypeUse) -> impl fmt::
             PrimitiveType::U64 => "uint64",
             PrimitiveType::F32 => "float",
             PrimitiveType::F64 => "double",
+
             // Unreal Engine does not have native 128/256 bit integer types.
-            // These would need custom implementation or a third-party library.
-            // Placeholder names are used here.
-            PrimitiveType::I128 => "FSpacetimeDBInt128",
-            PrimitiveType::U128 => "FSpacetimeDBUInt128",
-            PrimitiveType::I256 => "FSpacetimeDBInt256",
-            PrimitiveType::U256 => "FSpacetimeDBUInt256",
-        }),
+            PrimitiveType::I128 => "FSpacetimeDBInt128",    //TODO: No equivalent in Unreal
+            PrimitiveType::U128 => "FSpacetimeDBUInt128",   //TODO: No equivalent in Unreal   
+            PrimitiveType::I256 => "FSpacetimeDBInt256",    //TODO: No equivalent in Unreal
+            PrimitiveType::U256 => "FSpacetimeDBUInt256",   //TODO: No equivalent in Unreal   
+        }),     
         AlgebraicTypeUse::Never => unimplemented!(),
     })
 }
