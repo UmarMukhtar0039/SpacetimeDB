@@ -148,22 +148,18 @@ impl Lang for UnrealCpp {
 
 
     fn generate_type(&self, m:&ModuleDef, typ:&TypeDef)->String {
-        // identical to user’s original implementation (omitted here)…
-        let name = typ.name.name_segments().last().map(|id| id.deref()).unwrap_or("Unnamed");
-        let struct_name = format!("F{}", name);
-        let mut output = UnrealCppAutogen::new(&[], name);
-        writeln!(output, "USTRUCT(BlueprintType)");
-        writeln!(output, "struct {}", struct_name);
-        writeln!(output, "{{");
-        writeln!(output, "    GENERATED_BODY()\n");
-        if let Some(prod) = m.typespace_for_generate()[typ.ty].as_product() {
-            for (field, ty) in prod {
-                writeln!(output, "    UPROPERTY(BlueprintReadWrite)");
-                writeln!(output, "    {} {};", cpp_ty_fmt(m, ty), field.deref());
-            }
+        let name = typ
+            .name
+            .name_segments()
+            .last()
+            .map(|id| id.deref())
+            .unwrap_or("Unnamed");
+
+        match &m.typespace_for_generate()[typ.ty] {
+            AlgebraicTypeDef::Product(prod) => autogen_unreal_tuple(m, name, prod),
+            AlgebraicTypeDef::Sum(sum) => autogen_unreal_sum(m, name, sum),
+            AlgebraicTypeDef::PlainEnum(en) => autogen_unreal_plain_enum(name, en),
         }
-        writeln!(output, "}};");
-        output.into_inner()
     }
 
     fn generate_reducer(&self, module:&ModuleDef, reducer:&ReducerDef)->String {
@@ -445,4 +441,76 @@ fn cpp_ty_fmt<'a>(module: &'a ModuleDef, ty: &'a AlgebraicTypeUse) -> impl fmt::
         }),     
         AlgebraicTypeUse::Never => unimplemented!(),
     })
+}
+
+// ---------------------------------------------------------------------------
+//  Type generation helpers
+// ---------------------------------------------------------------------------
+
+fn autogen_unreal_product_common(
+    module: &ModuleDef,
+    name: &str,
+    product_type: &ProductTypeDef,
+) -> String {
+    let struct_name = format!("F{}", name);
+    let mut output = UnrealCppAutogen::new(&[], name);
+
+    writeln!(output, "USTRUCT(BlueprintType)");
+    writeln!(output, "struct {}", struct_name);
+    writeln!(output, "{{");
+    writeln!(output, "    GENERATED_BODY()\n");
+
+    for (field, ty) in product_type {
+        writeln!(output, "    UPROPERTY(BlueprintReadWrite)");
+        writeln!(output, "    {} {};", cpp_ty_fmt(module, ty), field.deref());
+    }
+
+    writeln!(output, "}};");
+    output.into_inner()
+}
+
+fn autogen_unreal_tuple(
+    module: &ModuleDef,
+    name: &str,
+    tuple: &ProductTypeDef,
+) -> String {
+    autogen_unreal_product_common(module, name, tuple)
+}
+
+fn autogen_unreal_sum(
+    module: &ModuleDef,
+    name: &str,
+    sum_type: &SumTypeDef,
+) -> String {
+    let struct_name = format!("F{}", name);
+    let mut output = UnrealCppAutogen::new(&[], name);
+
+    writeln!(output, "USTRUCT(BlueprintType)");
+    writeln!(output, "struct {}", struct_name);
+    writeln!(output, "{{");
+    writeln!(output, "    GENERATED_BODY()\n");
+    writeln!(output, "    UPROPERTY() uint8 Tag = 0;");
+
+    for (variant_name, variant_ty) in &sum_type.variants {
+        writeln!(output, "    UPROPERTY()");
+        writeln!(output, "    {} {};", cpp_ty_fmt(module, variant_ty), variant_name.deref().to_case(Case::Pascal));
+    }
+
+    writeln!(output, "}};");
+    output.into_inner()
+}
+
+fn autogen_unreal_plain_enum(name: &str, enum_type: &PlainEnumTypeDef) -> String {
+    let enum_name = format!("E{}", name);
+    let mut output = UnrealCppAutogen::new(&[], name);
+
+    writeln!(output, "UENUM(BlueprintType)");
+    writeln!(output, "enum class {} : uint8", enum_name);
+    writeln!(output, "{{");
+    for variant in &*enum_type.variants {
+        writeln!(output, "    {},", variant.deref().to_case(Case::Pascal));
+    }
+    writeln!(output, "}};");
+
+    output.into_inner()
 }
