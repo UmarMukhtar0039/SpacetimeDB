@@ -306,14 +306,79 @@ impl Lang for UnrealCpp {
         let reducer_snake = reducer.name.deref();
         let pascal = reducer_snake.to_case(Case::Pascal);
         let mut header = UnrealCppAutogen::new(&[], &pascal);
-        let class_name = format!("USpacetime{}Reducers",pascal);
-        let call_func = format!("CallReducer_{}", pascal);
-        let invoke_func = format!("Invoke{}", pascal);
+        let args_struct = format!("F{}Args", pascal);
 
-        // ---- delegate macro -------------------------------------------------
+        // Generate reducer arguments struct (like C# Reducer.SendMessage)
+        writeln!(header, "USTRUCT(BlueprintType)");
+        writeln!(header, "struct {}", args_struct);
+        writeln!(header, "{{");
+        writeln!(header, "    GENERATED_BODY()");
+        writeln!(header);
+
+        // Generate properties for each parameter
+        for (param_name, param_type) in &reducer.params_for_generate.elements {
+            let param_pascal = param_name.deref().to_case(Case::Pascal);
+            writeln!(header, "    UPROPERTY(BlueprintReadWrite, Category=\"SpacetimeDB\")");
+            writeln!(header, "    {} {};", cpp_ty_fmt(module, param_type), param_pascal);
+            writeln!(header);
+        }
+
+        // Generate constructors
+        writeln!(header, "    {}()", args_struct);
+        if !reducer.params_for_generate.elements.is_empty() {
+            write!(header, "        : ");
+            let mut first = true;
+            for (param_name, param_type) in &reducer.params_for_generate.elements {
+                if !first { write!(header, ", "); }
+                first = false;
+                let param_pascal = param_name.deref().to_case(Case::Pascal);
+                // Set default values based on type
+                let type_str = cpp_ty_fmt(module, param_type).to_string();
+                let default_value = match type_str.as_str() {
+                    "FString" => "TEXT(\"\")",
+                    "int32" | "int64" | "float" | "double" => "0",
+                    "bool" => "false",
+                    _ => "{}", // Default constructor for complex types
+                };
+                write!(header, "{}({})", param_pascal, default_value);
+            }
+            writeln!(header);
+        }
+        writeln!(header, "    {{}}");
+        writeln!(header);
+
+        // Generate parameterized constructor
+        if !reducer.params_for_generate.elements.is_empty() {
+            write!(header, "    {}(", args_struct);
+            let mut first = true;
+            for (param_name, param_type) in &reducer.params_for_generate.elements {
+                if !first { write!(header, ", "); }
+                first = false;
+                let param_pascal = param_name.deref().to_case(Case::Pascal);
+                write!(header, "const {}& In{}", cpp_ty_fmt(module, param_type), param_pascal);
+            }
+            writeln!(header, ")");
+            
+            write!(header, "        : ");
+            let mut first = true;
+            for (param_name, _) in &reducer.params_for_generate.elements {
+                if !first { write!(header, ", "); }
+                first = false;
+                let param_pascal = param_name.deref().to_case(Case::Pascal);
+                write!(header, "{}(In{})", param_pascal, param_pascal);
+            }
+            writeln!(header);
+            writeln!(header, "    {{}}");
+        }
+
+        writeln!(header, "}};");
+        writeln!(header);
+
+        // Generate delegate declaration (like C# SendMessageHandler)
         let macro_name = delegate_macro_name(reducer.params_for_generate.elements.len());
         writeln!(header,
-            "{macro_name}(\n    F{pascal}Event,\n    const FReducerEventContext&, Context{}\n);",
+            "{macro_name}(\n    F{}Event,\n    const FReducerEventContext&, Context{}\n);",
+            pascal,
             {
                 // build extra params for delegate
                 let mut extras = String::new();
@@ -326,29 +391,7 @@ impl Lang for UnrealCpp {
                 extras
             }
         );
-        writeln!(header);
 
-        writeln!(header, "UCLASS()");
-        writeln!(header, "class {} : public UObject", class_name);
-        writeln!(header, "{{");
-        writeln!(header, "    GENERATED_BODY()\n");
-        writeln!(header, "public:");
-
-        write!(header, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB\")\n    void {}(", call_func);
-        let mut first=true;
-        for (param, ty) in &reducer.params_for_generate.elements {
-            if !first { write!(header, ", "); } first=false;
-            write!(header, "{} {}", cpp_ty_fmt(module, ty), param.deref().to_case(Case::Pascal));
-        }
-        writeln!(header, ");");
-        writeln!(header);
-        writeln!(header,
-            "    UPROPERTY(BlueprintAssignable, Category=\"SpacetimeDB\")\n    F{pascal}Event On{pascal};");
-        writeln!(header);
-        write!(header,
-            "    bool {}(const FReducerEventContext& Ctx, const F{}& Args);\n",
-            invoke_func, pascal);
-        writeln!(header, "}};");
         header.into_inner()
     }
 
