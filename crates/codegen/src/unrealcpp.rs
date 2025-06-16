@@ -3,7 +3,7 @@ use std::any::Any;
 use std::ops::Deref;
 use crate::Lang;
 use std::fmt::{self, Write};
-use spacetimedb_lib::Identity;
+// use spacetimedb_lib::Identity;
 use spacetimedb_schema::def::{ModuleDef, TableDef, ReducerDef, TypeDef};
 use crate::code_indenter::CodeIndenter;
 use spacetimedb_schema::identifier::Identifier;
@@ -21,60 +21,139 @@ use spacetimedb_schema::type_for_generate::{
 pub struct UnrealCpp;
 
 const REDUCER_EVENTS: &str = r#"
-struct IRemoteDbContext : IDbContext<RemoteTables, RemoteReducers, SetReducerFlags, SubscriptionBuilder>
+// Context classes for event handling (equivalent to C# REDUCER_EVENTS)
+
+USTRUCT(BlueprintType)
+struct FEventContext
 {
-    FOnUnhandledReducerError OnUnhandledReducerError;
-};
+    GENERATED_BODY()
 
-class FEventContext final : public IEventContext, public IRemoteDbContext
-{
-public:
-    FEventContext(DbConnection* Conn, const FEvent<Reducer>& InEvent);
+    FEventContext() = default;
+    FEventContext(UDbConnection* InConn, const FEvent& InEvent);
 
-    FEvent<Reducer> Event;
-    RemoteTables Db;
-    RemoteReducers Reducers;
-    SetReducerFlags ReducerFlags;
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    FEvent Event;
 
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    URemoteTables* Db;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    URemoteReducers* Reducers;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    FSetReducerFlags SetReducerFlags;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
     bool IsActive() const;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
     void Disconnect();
-    SubscriptionBuilder SubscriptionBuilder();
-    TOptional<Identity> Identity() const;
-    ConnectionId ConnectionId() const;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    USubscriptionBuilder* SubscriptionBuilder();
+
+private:
+    UPROPERTY()
+    UDbConnection* Conn;
 };
 
-class FReducerEventContext final : public IReducerEventContext, public IRemoteDbContext
+USTRUCT(BlueprintType)
+struct FReducerEventContext
 {
-public:
-    FReducerEventContext(DbConnection* Conn, const FReducerEvent<Reducer>& InEvent);
+    GENERATED_BODY()
 
-    FReducerEvent<Reducer> Event;
+    FReducerEventContext() = default;
+    FReducerEventContext(UDbConnection* InConn, const FReducerEvent& InEvent);
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    FReducerEvent Event;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    URemoteTables* Db;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    URemoteReducers* Reducers;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    FSetReducerFlags SetReducerFlags;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    bool IsActive() const;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    void Disconnect();
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    USubscriptionBuilder* SubscriptionBuilder();
+
+private:
+    UPROPERTY()
+    UDbConnection* Conn;
 };
 
-class FErrorContext final : public IErrorContext, public IRemoteDbContext
+USTRUCT(BlueprintType)
+struct FErrorContext
 {
-public:
-    FErrorContext(DbConnection* Conn, const std::exception& InError);
+    GENERATED_BODY()
 
-    const std::exception& Event;
+    FErrorContext() = default;
+    FErrorContext(UDbConnection* InConn, const FString& InError);
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    FString Error;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    URemoteTables* Db;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    URemoteReducers* Reducers;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    FSetReducerFlags SetReducerFlags;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    bool IsActive() const;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    void Disconnect();
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    USubscriptionBuilder* SubscriptionBuilder();
+
+private:
+    UPROPERTY()
+    UDbConnection* Conn;
 };
 
-class FSubscriptionEventContext final : public ISubscriptionEventContext, public IRemoteDbContext
+USTRUCT(BlueprintType)
+struct FSubscriptionEventContext
 {
-public:
-    explicit FSubscriptionEventContext(DbConnection* Conn);
-};
+    GENERATED_BODY()
 
-class SubscriptionBuilder
-{
-    // Builder pattern for subscription queries
-};
+    FSubscriptionEventContext() = default;
+    FSubscriptionEventContext(UDbConnection* InConn);
 
-class SubscriptionHandle final : public SubscriptionHandleBase<FSubscriptionEventContext, FErrorContext>
-{
-public:
-    SubscriptionHandle(IDbConnection* Conn, FOnSubscriptionApplied OnApplied, const TArray<FString>& QuerySqls);
-    SubscriptionHandle(IDbConnection* Conn, FOnSubscriptionApplied OnApplied, FOnSubscriptionError OnError, const TArray<FString>& QuerySqls);
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    URemoteTables* Db;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    URemoteReducers* Reducers;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    FSetReducerFlags SetReducerFlags;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    bool IsActive() const;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    void Disconnect();
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    USubscriptionBuilder* SubscriptionBuilder();
+
+private:
+    UPROPERTY()
+    UDbConnection* Conn;
 };
 "#;
 
@@ -87,7 +166,7 @@ impl Lang for UnrealCpp {
         format!("Tables/{}Table.g.h", table.name.deref().to_case(Case::Pascal))
     }
     fn type_filename(&self, type_name: &spacetimedb_schema::def::ScopedTypeName) -> String {
-        format!("Types/{}.g.h", collect_case(Case::Pascal, type_name.name_segments()))
+        format!("Types/{}Type.g.h", collect_case(Case::Pascal, type_name.name_segments()))
     }
     fn reducer_filename(&self, reducer_name: &Identifier) -> String {
         format!("Reducers/{}.g.h", reducer_name.deref().to_case(Case::Pascal))
@@ -99,107 +178,114 @@ impl Lang for UnrealCpp {
 
         let mut output = UnrealCppAutogen::new(&[
             "SpacetimeRemoteTableHandle.g.h",
-            // TODO: Client includes
+            &format!("Types/{}Type.g.h", table.name.deref().to_case(Case::Pascal)),
             ], &self_header
         );
 
-        let row_struct = format!("F{}", table.name.deref().to_case(Case::Pascal));   // e.g. "FMessage"
+        let row_struct = format!("F{}Type", table.name.deref().to_case(Case::Pascal));   // e.g. "FUserType", "FMessageType"
         let handle_cls = format!("U{}Table",  table.name.deref().to_case(Case::Pascal)); // "UMessageTable"
+        let table_name = table.name.deref().to_string();
+        let table_pascal = table.name.deref().to_case(Case::Pascal);
 
         let schema = TableSchema::from_module_def(module, table, (), 0.into())
             .validated()
             .expect("table schema should validate");
 
-
-        writeln!(output, "UCLASS(BlueprintType)");
-        writeln!(output, "class {} : public USpacetimeRemoteTableHandleBase", handle_cls);
-        writeln!(output, "{{");
-        writeln!(output, "    GENERATED_BODY()");
-        writeln!(output);
-        writeln!(output, "protected:");
-        writeln!(output,
-            "    virtual FString GetRemoteTableName() const override;"
-        );
-        writeln!(output, "    using FRow = {};", row_struct); // TODO: Do we need this?
-        writeln!(output);
-
+        // Generate unique index classes first
         let product_type = module.typespace_for_generate()[table.product_type_ref]
             .as_product()
             ;
 
-        let mut index_field_names = Vec::new();
+        let mut unique_indexes = Vec::new();
 
         for idx in iter_indexes(table) {
             let Some(accessor_name) = idx.accessor_name.as_ref() else { continue; };
 
             if let IndexAlgorithm::BTree(BTreeAlgorithm { columns }) = &idx.algorithm {
-                // helper to turn a ColId into (FieldName, CppType)
-                let field_info = |col: ColId| {
-                    let (f_name, f_ty) = &product_type.unwrap().elements[col.idx()];
-                    (
-                        f_name.deref().to_case(Case::Pascal),       // "UserId"
-                        cpp_ty_fmt(module, f_ty).to_string(),               // "int32", "FString", …
-                    )
-                };
+                if schema.is_unique(columns) {
+                    if let Some(col) = columns.as_singleton() {
+                        let (f_name, f_ty) = &product_type.unwrap().elements[col.idx()];
+                        let field_name = f_name.deref().to_case(Case::Pascal);
+                        let field_type = cpp_ty_fmt(module, f_ty).to_string();
+                        let index_name = accessor_name.deref().to_case(Case::Pascal);
+                        let index_class_name = format!("U{}{}UniqueIndex", table_pascal, index_name);
 
-                // --- key type -------------------------------------------------
-                let (key_type, key_expr) = match columns.as_singleton() {
-                    Some(col) => {
-                        let (fname, fty) = field_info(col);
-                        (fty, format!("Row.{}", fname))
+                        writeln!(output, "UCLASS(Blueprintable)");
+                        writeln!(output, "class {} : public UUniqueIndexBase", index_class_name);
+                        writeln!(output, "{{");
+                        writeln!(output, "    GENERATED_BODY()");
+                        writeln!(output);
+                        writeln!(output, "protected:");
+                        writeln!(output, "    virtual {} GetKey(const {}& Row) const override {{ return Row.{}; }}", field_type, row_struct, field_name);
+                        writeln!(output, "}};");
+                        writeln!(output);
+
+                        unique_indexes.push((index_name, index_class_name, field_type));
                     }
-                    None => {
-                        let mut members = Vec::<String>::new();
-                        let mut exprs   = Vec::<String>::new();
-                        for col in columns.iter() {
-                            let (fname, fty) = field_info(col);
-                            members.push(format!("{} {}", fty, fname));
-                            exprs  .push(format!("Row.{}", fname));
-                        }
-                        let key_ty  = format!("struct {{ {} }}", members.join("; "));
-                        let key_get = format!("{{ return {{ {} }}; }}", exprs.join(", "));
-                        (key_ty, key_get)
-                    }
-                };
-
-                let mut idx_cls  = accessor_name.deref().to_case(Case::Pascal); // e.g. "UserId"
-                let base         = if schema.is_unique(columns) {
-                    idx_cls.push_str("UniqueIndex");
-                    "FUniqueIndexBase"
-                } else {
-                    idx_cls.push_str("Index");
-                    "FBTreeIndexBase"
-                };
-
-                writeln!(output, "    struct {} : public {}<{}>", idx_cls, base, key_type);
-                writeln!(output, "    {{");
-                writeln!(output, "        explicit {}({}* InTable) : {}(InTable) {{}}", idx_cls, handle_cls, base);
-                writeln!(output, "        virtual {} GetKey(const FRow& Row) const override {}", key_type, key_expr);
-                writeln!(output, "    }};");
-                writeln!(output);
-
-                // field inside the handle
-                writeln!(output, "public:");
-                writeln!(output, "    {} {}{{ this }};", idx_cls, idx_cls);   // default-construct
-                writeln!(output);
-
-                index_field_names.push(idx_cls);
+                }
             }
         }
 
+        writeln!(output, "UCLASS(BlueprintType)");
+        writeln!(output, "class {} : public URemoteTableHandle", handle_cls);
+        writeln!(output, "{{");
+        writeln!(output, "    GENERATED_BODY()");
+        writeln!(output);
         writeln!(output, "public:");
-        writeln!(output, "    explicit {}(USpacetimeDBConnection* InConn) : URemoteTableHandle(InConn) {{}}", handle_cls);
 
-        // primary-key helper – same semantics as C#
-        if let Some(pk) = schema.pk() {
-            let pk_field = pk.col_name.deref().to_case(Case::Pascal);
+        // Generate unique index properties
+        for (index_name, index_class_name, _) in &unique_indexes {
+            writeln!(output, "    UPROPERTY(BlueprintReadOnly)");
+            writeln!(output, "    {}* {};", index_class_name, index_name);
             writeln!(output);
-            writeln!(
-                output,
-                "    virtual uint64 GetPrimaryKey(const FRow& Row) const override {{ return Row.{}; }}",
-                pk_field
-            );
         }
+
+        writeln!(output, "    virtual void PostInitialize(UDbConnection* Conn) override");
+        writeln!(output, "    {{");
+        writeln!(output, "        Super::PostInitialize(Conn);");
+        for (index_name, index_class_name, _) in &unique_indexes {
+            writeln!(output, "        {} = NewObject<{}>(this);", index_name, index_class_name);
+        }
+        writeln!(output, "    }}");
+        writeln!(output);
+
+        // Generate table events in public section
+        writeln!(output, "    // Table Events");
+        writeln!(output, "    DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOn{}Insert, const {}&, NewRow);", table_pascal, row_struct);
+        writeln!(output, "    DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOn{}Update, const {}&, OldRow, const {}&, NewRow);", table_pascal, row_struct, row_struct);
+        writeln!(output, "    DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOn{}Delete, const {}&, DeletedRow);", table_pascal, row_struct);
+        writeln!(output);
+
+        writeln!(output, "    UPROPERTY(BlueprintAssignable, Category = \"SpacetimeDB Events\")");
+        writeln!(output, "    FOn{}Insert OnInsert;", table_pascal);
+        writeln!(output);
+
+        writeln!(output, "    UPROPERTY(BlueprintAssignable, Category = \"SpacetimeDB Events\")");
+        writeln!(output, "    FOn{}Update OnUpdate;", table_pascal);
+        writeln!(output);
+
+        writeln!(output, "    UPROPERTY(BlueprintAssignable, Category = \"SpacetimeDB Events\")");
+        writeln!(output, "    FOn{}Delete OnDelete;", table_pascal);
+        writeln!(output);
+
+        writeln!(output, "protected:");
+        writeln!(output, "    virtual FString GetRemoteTableName() const override {{ return TEXT(\"{}\"); }}", table_name);
+        
+        // Add GetPrimaryKey method if table has a primary key
+        if let Some(pk) = schema.pk() {
+            let pk_field_name = pk.col_name.deref().to_case(Case::Pascal);
+            let pk_field_type = {
+                let (_, f_ty) = &product_type.unwrap().elements[pk.col_pos.idx()];
+                cpp_ty_fmt(module, f_ty).to_string()
+            };
+            writeln!(output);
+            writeln!(output, "    virtual {} GetPrimaryKey(const {}& Row) const override {{ return Row.{}; }}", pk_field_type, row_struct, pk_field_name);
+        }
+
+        writeln!(output);
+        writeln!(output, "private:");
+        writeln!(output, "    const FString TableName = TEXT(\"{}\");", table_name);
+
         writeln!(output, "}};");    // end UCLASS
 
         output.into_inner()
@@ -252,7 +338,7 @@ impl Lang for UnrealCpp {
         let mut first=true;
         for (param, ty) in &reducer.params_for_generate.elements {
             if !first { write!(header, ", "); } first=false;
-            write!(header, "{} {}", cpp_ty_fmt(module, ty), param.deref());
+            write!(header, "{} {}", cpp_ty_fmt(module, ty), param.deref().to_case(Case::Pascal));
         }
         writeln!(header, ");");
         writeln!(header);
@@ -269,253 +355,417 @@ impl Lang for UnrealCpp {
     fn generate_globals(&self, module:&ModuleDef)->Vec<(String,String)> {
         let mut files = vec![];
 
-        let mut base_hdr = UnrealCppAutogen::new(&[], "SpacetimeRemoteTableHandle");
-        writeln!(base_hdr, "UCLASS(Abstract)");
-        writeln!(base_hdr, "class USpacetimeRemoteTableHandleBase : public UObject {{");
-        writeln!(base_hdr, "    GENERATED_BODY()\npublic:");
-        writeln!(base_hdr, "    virtual FString GetRemoteTableName() const PURE_VIRTUAL(USpacetimeRemoteTableHandleBase::GetRemoteTableName, return TEXT(\"\"));");
-        writeln!(base_hdr, "}};");
-        files.push(("SpacetimeRemoteTableHandle.g.h".into(), base_hdr.into_inner()));
-
-        let mut hdr = UnrealCppAutogen::new(&[], "SpacetimeDBClientGlobals");
-        writeln!(hdr, "// Autogenerated SpacetimeDB client globals for Unreal Engine\n");
-        writeln!(hdr, "class FSpacetimeDBClientGlobals {{");
-        writeln!(hdr, "public:");
-        writeln!(hdr, "    static FString AuthTokenPath;\n    static FString HostURL;\n    static FString DbName;\n}};");
-        files.push(("SpacetimeDBClientGlobals.g.h".into(), hdr.into_inner()));
-
-        let mut cpp = UnrealCppAutogen::new_cpp(&["SpacetimeDBClientGlobals.g.h"]);
-        writeln!(cpp, "FString FSpacetimeDBClientGlobals::AuthTokenPath = \"\";");
-        writeln!(cpp, "FString FSpacetimeDBClientGlobals::HostURL    = \"\";");
-        writeln!(cpp, "FString FSpacetimeDBClientGlobals::DbName      = \"\";\n");
-
-        let mut populate_fields = String::new();
-
-        // populate .cpp files per reducer
-        for reducer in module.reducers() {
-            let snake = reducer.name.deref();
-            let pascal = snake.to_case(Case::Pascal);
-            let header_include = format!("Reducers/{}.g.h", pascal);
-            let mut rc_cpp = UnrealCppAutogen::new_cpp(&[&header_include]);
-
-            write!(rc_cpp, "void USpacetime{}Reducers::CallReducer_{}(", pascal, pascal);
-            let mut first=true;
-            for (variant_name, variant_ty) in &reducer.params_for_generate.elements {
-                if !first { write!(rc_cpp, ", "); } first=false;
-                write!(rc_cpp, "{} {}", cpp_ty_fmt(module, variant_ty), variant_name.deref());
-            }
-            writeln!(rc_cpp, ")");
-            writeln!(
-    rc_cpp,
-    r#"{{
-    if (!Conn) {{ UE_LOG(LogTemp, Error, TEXT("SpacetimeDB connection is null")); return; }}
-
-    // TODO: Build payload struct defined in generated Reducer
-    FReducer::F{pascal} Payload{{}};
-    // TODO: populate fields
-{populate_fields}
-
-    Conn->InternalCallReducer(
-        Payload,
-        SetReducerFlags ? SetReducerFlags->{pascal}Flags : FCallReducerFlags{{}}
-    );
-}}"#,
-        pascal           = pascal,
-        populate_fields  = populate_fields
-    );
-
-
-            // ---- Invoke implementation ----
-            writeln!(rc_cpp,
-                "bool USpacetime{}Reducers::Invoke{}(const FReducerEventContext& Ctx, const F{}& Args)", pascal, pascal, pascal);
-            writeln!(rc_cpp, "{{");
-            writeln!(rc_cpp, "    if (!On{}.IsBound())", pascal);
-            writeln!(rc_cpp, "    {{");
-            writeln!(rc_cpp, "        if (Ctx.Event.IsFailed() && OnUnhandledReducerError.IsBound())");
-            writeln!(rc_cpp, "            OnUnhandledReducerError.Broadcast(Ctx, Ctx.Event.GetError());");
-            writeln!(rc_cpp, "        return false;\n    }}");
-
-            // broadcast line – build param list
-            write!(rc_cpp, "    On{}.Broadcast(Ctx", pascal);
-            for (param, _) in &reducer.params_for_generate.elements {
-                write!(rc_cpp, ", Args.{}", param.deref().to_case(Case::Pascal));
-            }
-            writeln!(rc_cpp, ");");
-            writeln!(rc_cpp, "    return true;\n}}\n");
-
-            files.push((format!("Reducers/{}.g.cpp", pascal), rc_cpp.into_inner()));
-        }
-
-        files.push(("SpacetimeDBClientGlobals.g.cpp".into(), cpp.into_inner()));
-
-        for table in module.tables() {
-            let snake  = table.name.deref();                 // "message"
-            let pascal = snake.to_case(Case::Pascal);        // "Message"
-            let handle = format!("U{}Table", pascal);      // "UMessageTable"
-
-            // Create the implementation (cpp) file for this handle
-            let header_include = format!("Tables/{}Table.g.h", pascal);
-            let mut tbl_cpp = UnrealCppAutogen::new_cpp(&[&header_include]);
-
-            writeln!(tbl_cpp, "FString {}::GetRemoteTableName() const {{", handle);
-            writeln!(tbl_cpp, "    return TEXT(\"{}\");", snake);
-            writeln!(tbl_cpp, "}}\n");
-
-            writeln!(tbl_cpp, "const TArray<F{}>& {}::GetRows() const {{", pascal, handle);
-            writeln!(tbl_cpp, "    return Rows;");
-            writeln!(tbl_cpp, "}}\n");
-
-            files.push((format!("Tables/{}Table.g.cpp", pascal), tbl_cpp.into_inner()));
-        }
-
-        let mut push_file = |name: &str, text: String| {
-            files.push((name.to_owned(), text));
-        };
-
-        let mut ctx_h = UnrealCppAutogen::new(&["SpacetimeDBClient.g.h"], "SpacetimeDBContexts");
-
-        for ctx in ["Event", "ReducerEvent", "Error", "SubscriptionEvent"] {
-            writeln!(ctx_h, "USTRUCT(BlueprintType)");
-            writeln!(ctx_h, "struct F{}Context {{", ctx);
-            writeln!(ctx_h, "    GENERATED_BODY()");
-            writeln!(ctx_h, "");
-            writeln!(ctx_h, "    UPROPERTY(BlueprintReadOnly) class USpacetimeDBConnection* Conn = nullptr;");
-            writeln!(ctx_h, "    UPROPERTY(BlueprintReadOnly) class URemoteTables*          Db   = nullptr;");
-            writeln!(ctx_h, "    UPROPERTY(BlueprintReadOnly) class URemoteReducers*        Reducers = nullptr;");
-            writeln!(ctx_h, "    UPROPERTY(BlueprintReadOnly) struct FSetReducerFlags*      SetReducerFlags = nullptr;");
-            writeln!(ctx_h, "}};\n");
-        }
-        push_file("SpacetimeDBContexts.g.h", ctx_h.into_inner());
-
-        // ------------------------------------------------------------------------
-        //  Subscription helpers  (SpacetimeDBSubscription.g.h)
-        // ------------------------------------------------------------------------
-        let mut sub_h = UnrealCppAutogen::new(&["SpacetimeDBContexts.g.h"], "SpacetimeDBSubscription");
-
-        writeln!(sub_h, "UCLASS(BlueprintType)");
-        writeln!(sub_h, "class USubscriptionBuilder : public UObject {{");
-        writeln!(sub_h, "    GENERATED_BODY()");
-        writeln!(sub_h, "public:");
-        writeln!(sub_h, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB|Subscription\")");
-        writeln!(sub_h, "    USubscriptionBuilder* OnApplied(FScriptDelegate Callback);");
-        writeln!(sub_h, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB|Subscription\")");
-        writeln!(sub_h, "    USubscriptionBuilder* OnError  (FScriptDelegate Callback);");
-        writeln!(sub_h, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB|Subscription\")");
-        writeln!(sub_h, "    class USubscriptionHandle* Subscribe(const TArray<FString>& SQL);");
-        writeln!(sub_h, "");
-        writeln!(sub_h, "private:");
-        writeln!(sub_h, "    UPROPERTY() class USpacetimeDBConnection* Conn;  // wired by builder");
-        writeln!(sub_h, "}};\n");
-
-        writeln!(sub_h, "UCLASS(BlueprintType)");
-        writeln!(sub_h, "class USubscriptionHandle : public UObject {{");
-        writeln!(sub_h, "    GENERATED_BODY()");
-        writeln!(sub_h, "public:");
-        writeln!(sub_h, "    void Init(class USpacetimeDBConnection* InConn) {{ Conn = InConn; }}");
-        writeln!(sub_h, "private:");
-        writeln!(sub_h, "    UPROPERTY() class USpacetimeDBConnection* Conn;");
-        writeln!(sub_h, "}};\n");
-
-        push_file("SpacetimeDBSubscription.g.h", sub_h.into_inner());
-
-        // ------------------------------------------------------------------------
-        //  Main client  (SpacetimeDBClient.g.h / .cpp)
-        // ------------------------------------------------------------------------
-        let mut client_h = UnrealCppAutogen::new(
-            &[
-                "SpacetimeDBContexts.g.h",
-                "SpacetimeDBSubscription.g.h",
-                "SpacetimeRemoteTableHandle.g.h",
-            ],
-            "SpacetimeDBClient"
-        );
-
-        // --- forward decls ------------------------------------------------------
+        // Generate the main SpacetimeDBClient file (replica of C# structure)
+        let mut client_h = UnrealCppAutogen::new(&["SpacetimeDBSdk.g.h"], "SpacetimeDBClient");
+        
+        // Forward declarations
+        writeln!(client_h, "// Forward declarations");
+        writeln!(client_h, "class UDbConnection;");
+        writeln!(client_h, "class URemoteTables;");
+        writeln!(client_h, "class URemoteReducers;");
         writeln!(client_h, "class USubscriptionBuilder;");
         writeln!(client_h, "class USubscriptionHandle;");
+        writeln!(client_h);
 
-        // --- SetReducerFlags ----------------------------------------------------
+        // Context structs (like C# EventContext, ReducerEventContext, etc.)
+        generate_context_structs(&mut client_h);
+
+        // SetReducerFlags struct
         writeln!(client_h, "USTRUCT(BlueprintType)");
-        writeln!(client_h, "struct FSetReducerFlags {{");
+        writeln!(client_h, "struct FSetReducerFlags");
+        writeln!(client_h, "{{");
         writeln!(client_h, "    GENERATED_BODY()");
-        writeln!(client_h, "}};\n");
-
-        // --- RemoteTables -------------------------------------------------------
-        writeln!(client_h, "UCLASS(BlueprintType)");
-        writeln!(client_h, "class URemoteTables : public UObject {{");
-        writeln!(client_h, "    GENERATED_BODY()");
-        writeln!(client_h, "public:");
-        for tbl in module.tables() {
-            let pas = tbl.name.deref().to_case(Case::Pascal);
-            writeln!(
-                client_h,
-                "    UPROPERTY(BlueprintReadOnly) class U{}Table* {} = nullptr;",
-                pas, pas
-            );
-        }
-        writeln!(client_h, "}};\n");
-
-        // --- RemoteReducers -----------------------------------------------------
-        writeln!(client_h, "UCLASS(BlueprintType)");
-        writeln!(client_h, "class URemoteReducers : public URemoteBase {{");
-        writeln!(client_h, "    GENERATED_BODY()");
-        writeln!(client_h, "public:");
-        for red in module.reducers() {
-            let pas = red.name.deref().to_case(Case::Pascal);
-            writeln!(
-                client_h,
-                "    DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(F{0}Event, const FReducerEventContext&, Context, const struct FReducer::{0}&, Args);",
-                pas
-            );
-            writeln!(
-                client_h,
-                "    UPROPERTY(BlueprintAssignable) F{0}Event On{0};",
-                pas
-            );
-        }
-        writeln!(client_h, "");
-        writeln!(client_h, "    UPROPERTY() class USpacetimeDBConnection* Conn;"); // set by owner
-        writeln!(client_h, "}};\n");
-
-        // --- DbConnection / main entry -----------------------------------------
-        writeln!(client_h, "UCLASS(BlueprintType)");
-        writeln!(client_h, "class USpacetimeDBConnection : public USpacetimeDBConnectionBase {{");
-        writeln!(client_h, "    GENERATED_BODY()");
-        writeln!(client_h, "public:");
-        writeln!(client_h, "    USpacetimeDBConnection();");
-        writeln!(client_h, "");
-        writeln!(client_h, "    UPROPERTY(BlueprintReadOnly) URemoteTables*   Db         = nullptr;");
-        writeln!(client_h, "    UPROPERTY(BlueprintReadOnly) URemoteReducers* Reducers   = nullptr;");
-        writeln!(client_h, "    UPROPERTY(BlueprintReadOnly) FSetReducerFlags SetReducerFlags;");
-        writeln!(client_h, "");
-        writeln!(client_h, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB\")");
-        writeln!(client_h, "    class USubscriptionBuilder* SubscriptionBuilder();");
-        writeln!(client_h, "");
-        writeln!(client_h, "    // Broadcast when a reducer error has no local handler");
-        writeln!(client_h, "    DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FUnhandledReducerError, const FReducerEventContext&, Context, const FString&, Error);");
-        writeln!(client_h, "    UPROPERTY(BlueprintAssignable) FUnhandledReducerError OnUnhandledReducerError;");
         writeln!(client_h, "}};");
-        push_file("SpacetimeDBClient.g.h", client_h.into_inner());
+        writeln!(client_h);
 
-        // --- client cpp ---------------------------------------------------------
+        // RemoteTables class (like C# RemoteTables)
+        generate_remote_tables_class(&mut client_h, module);
+
+        // RemoteReducers class (like C# RemoteReducers)
+        generate_remote_reducers_class(&mut client_h, module);
+
+        // SubscriptionBuilder class
+        generate_subscription_builder_class(&mut client_h);
+
+        // SubscriptionHandle class
+        generate_subscription_handle_class(&mut client_h);
+
+        // Main DbConnection class (like C# DbConnection)
+        generate_db_connection_class(&mut client_h, module);
+
+        // Abstract Reducer base class (like C# Reducer)
+        generate_reducer_base_class(&mut client_h, module);
+
+        files.push(("SpacetimeDBClient.g.h".into(), client_h.into_inner()));
+
+        // Generate the implementation file
         let mut client_cpp = UnrealCppAutogen::new_cpp(&["SpacetimeDBClient.g.h"]);
+        generate_client_implementation(&mut client_cpp, module);
+        files.push(("SpacetimeDBClient.g.cpp".into(), client_cpp.into_inner()));
 
-        writeln!(client_cpp, "USpacetimeDBConnection::USpacetimeDBConnection()");
-        writeln!(client_cpp, "{{");
-        writeln!(client_cpp, "    Db       = NewObject<URemoteTables>(this);");
-        writeln!(client_cpp, "    Reducers = NewObject<URemoteReducers>(this);");
-        writeln!(client_cpp, "    Reducers->Conn = this;");
-        writeln!(client_cpp, "}}");
-        writeln!(client_cpp, "");
-        writeln!(client_cpp, "USubscriptionBuilder* USpacetimeDBConnection::SubscriptionBuilder()");
-        writeln!(client_cpp, "{{");
-        writeln!(client_cpp, "    USubscriptionBuilder* B = NewObject<USubscriptionBuilder>(this);");
-        writeln!(client_cpp, "    return B;");
-        writeln!(client_cpp, "}}");
-        push_file("SpacetimeDBClient.g.cpp", client_cpp.into_inner());
-
+        // No additional individual files - everything goes in the main client file
         files
     }
+}
+
+// Helper functions for generating the consolidated SpacetimeDBClient file
+
+fn generate_context_structs(output: &mut UnrealCppAutogen) {
+    writeln!(output, "// Context structs (like C# EventContext, ReducerEventContext, etc.)");
+    writeln!(output, "// Generated from REDUCER_EVENTS pattern");
+    writeln!(output, "{}", REDUCER_EVENTS);
+    writeln!(output);
+}
+
+fn generate_remote_tables_class(output: &mut UnrealCppAutogen, module: &ModuleDef) {
+    writeln!(output, "// RemoteTables class (like C# RemoteTables)");
+    writeln!(output, "UCLASS(BlueprintType)");
+    writeln!(output, "class URemoteTables : public URemoteTablesBase");
+    writeln!(output, "{{");
+    writeln!(output, "    GENERATED_BODY()");
+    writeln!(output);
+    writeln!(output, "public:");
+    writeln!(output, "    void Initialize(UDbConnection* InConn);");
+    writeln!(output);
+    
+    // Generate table handle properties  
+    for table in module.tables() {
+        let table_pascal = table.name.deref().to_case(Case::Pascal);
+        writeln!(output, "    UPROPERTY(BlueprintReadOnly, Category=\"SpacetimeDB\")");
+        writeln!(output, "    class U{}Table* {};", table_pascal, table_pascal);
+        writeln!(output);
+    }
+    
+    writeln!(output, "}};");
+    writeln!(output);
+}
+
+fn generate_remote_reducers_class(output: &mut UnrealCppAutogen, module: &ModuleDef) {
+    writeln!(output, "// RemoteReducers class (like C# RemoteReducers)");
+    writeln!(output, "UCLASS(BlueprintType)");
+    writeln!(output, "class URemoteReducers : public URemoteReducersBase");
+    writeln!(output, "{{");
+    writeln!(output, "    GENERATED_BODY()");
+    writeln!(output);
+    writeln!(output, "public:");
+    writeln!(output, "    explicit URemoteReducers(UDbConnection* InConn, const FSetReducerFlags& InFlags);");
+    writeln!(output);
+    
+    // Generate reducer events and call methods (following C# pattern)
+    for reducer in module.reducers() {
+        let reducer_pascal = reducer.name.deref().to_case(Case::Pascal);
+        
+        // Generate delegate for reducer event (like C# SendMessageHandler)
+        let param_count = reducer.params_for_generate.elements.len() + 1; // +1 for context
+        let delegate_macro = match param_count {
+            1 => "DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam",
+            2 => "DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams", 
+            3 => "DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams",
+            4 => "DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams",
+            5 => "DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams",
+            _ => "DECLARE_DYNAMIC_MULTICAST_DELEGATE_SixParams",
+        };
+        
+        write!(output, "    {}(\n        F{}Handler,\n        const FReducerEventContext&, Context", delegate_macro, reducer_pascal);
+        for (param_name, param_type) in &reducer.params_for_generate.elements {
+            write!(output, ",\n        const {}&, {}", cpp_ty_fmt(module, param_type), param_name.deref().to_case(Case::Pascal));
+        }
+        writeln!(output, "\n    );");
+        
+        writeln!(output, "    UPROPERTY(BlueprintAssignable, Category=\"SpacetimeDB\")");
+        writeln!(output, "    F{}Handler On{};", reducer_pascal, reducer_pascal);
+        writeln!(output);
+        
+        // Generate call method (like C# public void SendMessage(string text))
+        write!(output, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB\")\n    void {}(", reducer_pascal);
+        let mut first = true;
+        for (param_name, param_type) in &reducer.params_for_generate.elements {
+            if !first { write!(output, ", "); }
+            first = false;
+            write!(output, "const {}& {}", cpp_ty_fmt(module, param_type), param_name.deref().to_case(Case::Pascal));
+        }
+        writeln!(output, ");");
+        writeln!(output);
+        
+        // Generate invoke method (like C# public bool InvokeSendMessage)
+        write!(output, "    bool Invoke{}(const FReducerEventContext& Context, const U{}Reducer* Args);", reducer_pascal, reducer_pascal);
+        writeln!(output);
+    }
+    
+    // Internal error handling (like C# InternalOnUnhandledReducerError)
+    writeln!(output, "    // Internal error handling");
+    writeln!(output, "    DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FInternalOnUnhandledReducerError, const FReducerEventContext&, Context, const FString&, Error);");
+    writeln!(output, "    FInternalOnUnhandledReducerError InternalOnUnhandledReducerError;");
+    writeln!(output);
+    
+    writeln!(output, "private:");
+    writeln!(output, "    UPROPERTY()");
+    writeln!(output, "    class UDbConnection* Conn;");
+    writeln!(output);
+    writeln!(output, "    UPROPERTY()");
+    writeln!(output, "    FSetReducerFlags SetCallReducerFlags;");
+    writeln!(output, "}};");
+    writeln!(output);
+}
+
+fn generate_subscription_builder_class(output: &mut UnrealCppAutogen) {
+    writeln!(output, "// SubscriptionBuilder class");
+    writeln!(output, "UCLASS(BlueprintType)");
+    writeln!(output, "class USubscriptionBuilder : public UObject");
+    writeln!(output, "{{");
+    writeln!(output, "    GENERATED_BODY()");
+    writeln!(output);
+    writeln!(output, "public:");
+    writeln!(output, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB\")");
+    writeln!(output, "    USubscriptionBuilder* OnApplied(FScriptDelegate Callback);");
+    writeln!(output);
+    writeln!(output, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB\")");
+    writeln!(output, "    USubscriptionBuilder* OnError(FScriptDelegate Callback);");
+    writeln!(output);
+    writeln!(output, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB\")");
+    writeln!(output, "    USubscriptionHandle* Subscribe(const TArray<FString>& SQL);");
+    writeln!(output);
+    writeln!(output, "private:");
+    writeln!(output, "    UPROPERTY()");
+    writeln!(output, "    class UDbConnection* Conn;");
+    writeln!(output, "}};");
+    writeln!(output);
+}
+
+fn generate_subscription_handle_class(output: &mut UnrealCppAutogen) {
+    writeln!(output, "// SubscriptionHandle class");
+    writeln!(output, "UCLASS(BlueprintType)");
+    writeln!(output, "class USubscriptionHandle : public USubscriptionHandleBase");
+    writeln!(output, "{{");
+    writeln!(output, "    GENERATED_BODY()");
+    writeln!(output);
+    writeln!(output, "public:");
+    writeln!(output, "    explicit USubscriptionHandle(UDbConnection* InConn);");
+    writeln!(output);
+    writeln!(output, "private:");
+    writeln!(output, "    UPROPERTY()");
+    writeln!(output, "    class UDbConnection* Conn;");
+    writeln!(output, "}};");
+    writeln!(output);
+}
+
+fn generate_db_connection_class(output: &mut UnrealCppAutogen, module: &ModuleDef) {
+    writeln!(output, "// Main DbConnection class (like C# DbConnection)");
+    writeln!(output, "UCLASS(BlueprintType)");
+    writeln!(output, "class UDbConnection : public UDbConnectionBase");
+    writeln!(output, "{{");
+    writeln!(output, "    GENERATED_BODY()");
+    writeln!(output);
+    writeln!(output, "public:");
+    writeln!(output, "    UDbConnection();");
+    writeln!(output);
+    writeln!(output, "    UPROPERTY(BlueprintReadOnly, Category=\"SpacetimeDB\")");
+    writeln!(output, "    URemoteTables* Db;");
+    writeln!(output);
+    writeln!(output, "    UPROPERTY(BlueprintReadOnly, Category=\"SpacetimeDB\")");
+    writeln!(output, "    URemoteReducers* Reducers;");
+    writeln!(output);
+    writeln!(output, "    UPROPERTY(BlueprintReadOnly, Category=\"SpacetimeDB\")");
+    writeln!(output, "    FSetReducerFlags SetReducerFlags;");
+    writeln!(output);
+    writeln!(output, "    UFUNCTION(BlueprintCallable, Category=\"SpacetimeDB\")");
+    writeln!(output, "    USubscriptionBuilder* SubscriptionBuilder();");
+    writeln!(output);
+    writeln!(output, "    // Error handling (like C# OnUnhandledReducerError)");
+    writeln!(output, "    DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnUnhandledReducerError, const FReducerEventContext&, Context, const FString&, Error);");
+    writeln!(output, "    UPROPERTY(BlueprintAssignable, Category=\"SpacetimeDB\")");
+    writeln!(output, "    FOnUnhandledReducerError OnUnhandledReducerError;");
+    writeln!(output);
+    writeln!(output, "protected:");
+    writeln!(output, "    // Abstract method implementations for reducer dispatching");
+    writeln!(output, "    virtual UReducer* ToReducer(const FTransactionUpdate& Update) override;");
+    writeln!(output, "    virtual bool Dispatch(const FReducerEventContext& Context, UReducer* Reducer) override;");
+    writeln!(output);
+    writeln!(output, "    // Hook up error handling to reducers (like C# add => Reducers.InternalOnUnhandledReducerError += value)");
+    writeln!(output, "    virtual void PostInitProperties() override;");
+    writeln!(output);
+    writeln!(output, "    UFUNCTION()");
+    writeln!(output, "    void OnUnhandledReducerErrorHandler(const FReducerEventContext& Context, const FString& Error);");
+    writeln!(output, "}};");
+    writeln!(output);
+}
+
+fn generate_reducer_base_class(output: &mut UnrealCppAutogen, module: &ModuleDef) {
+    writeln!(output, "// Abstract Reducer base class (like C# Reducer)");
+    writeln!(output, "UCLASS(Abstract, BlueprintType)");
+    writeln!(output, "class UReducer : public UObject");
+    writeln!(output, "{{");
+    writeln!(output, "    GENERATED_BODY()");
+    writeln!(output);
+    writeln!(output, "public:");
+    writeln!(output, "    virtual ~UReducer() = default;");
+    writeln!(output, "}};");
+    writeln!(output);
+    
+    // Generate specific reducer classes
+    for reducer in module.reducers() {
+        let reducer_pascal = reducer.name.deref().to_case(Case::Pascal);
+        
+        writeln!(output, "// {} Reducer class", reducer_pascal);
+        writeln!(output, "UCLASS(BlueprintType)");
+        writeln!(output, "class U{}Reducer : public UReducer", reducer_pascal);
+        writeln!(output, "{{");
+        writeln!(output, "    GENERATED_BODY()");
+        writeln!(output);
+        writeln!(output, "public:");
+        
+        // Generate properties for each parameter
+        for (param_name, param_type) in &reducer.params_for_generate.elements {
+            let param_pascal = param_name.deref().to_case(Case::Pascal);
+            writeln!(output, "    UPROPERTY(BlueprintReadOnly, Category=\"SpacetimeDB\")");
+            writeln!(output, "    {} {};", cpp_ty_fmt(module, param_type), param_pascal);
+        }
+        
+        writeln!(output, "}};");
+        writeln!(output);
+    }
+}
+
+fn generate_client_implementation(output: &mut UnrealCppAutogen, module: &ModuleDef) {
+    // UDbConnection constructor
+    writeln!(output, "UDbConnection::UDbConnection()");
+    writeln!(output, "{{");
+    writeln!(output, "    Db = NewObject<URemoteTables>(this);");
+    writeln!(output, "    Db->Initialize(this);");
+    writeln!(output, "    Reducers = NewObject<URemoteReducers>(this, SetReducerFlags);");
+    writeln!(output, "}}");
+    writeln!(output);
+    
+    // URemoteTables Initialize method
+    writeln!(output, "void URemoteTables::Initialize(UDbConnection* InConn)");
+    writeln!(output, "{{");
+    for table in module.tables() {
+        let table_pascal = table.name.deref().to_case(Case::Pascal);
+        writeln!(output, "    AddTable({} = NewObject<U{}Table>(this));", table_pascal, table_pascal);
+    }
+    writeln!(output, "}}");
+    writeln!(output);
+    
+    // URemoteReducers constructor
+    writeln!(output, "URemoteReducers::URemoteReducers(UDbConnection* InConn, const FSetReducerFlags& InFlags)");
+    writeln!(output, "    : Conn(InConn), SetCallReducerFlags(InFlags)");
+    writeln!(output, "{{");
+    writeln!(output, "}}");
+    writeln!(output);
+    
+    // Reducer implementations
+    for reducer in module.reducers() {
+        let reducer_pascal = reducer.name.deref().to_case(Case::Pascal);
+        let reducer_snake = reducer.name.deref();
+        
+        // Call method implementation
+        write!(output, "void URemoteReducers::{}(", reducer_pascal);
+        let mut first = true;
+        for (param_name, param_type) in &reducer.params_for_generate.elements {
+            if !first { write!(output, ", "); }
+            first = false;
+            write!(output, "const {}& {}", cpp_ty_fmt(module, param_type), param_name.deref().to_case(Case::Pascal));
+        }
+        writeln!(output, ")");
+        writeln!(output, "{{");
+        writeln!(output, "    if (!Conn)");
+        writeln!(output, "    {{");
+        writeln!(output, "        UE_LOG(LogTemp, Error, TEXT(\"SpacetimeDB connection is null\"));");
+        writeln!(output, "        return;");
+        writeln!(output, "    }}");
+        writeln!(output);
+        writeln!(output, "    // Create reducer args");
+        writeln!(output, "    U{}Reducer* Args = NewObject<U{}Reducer>();", reducer_pascal, reducer_pascal);
+        for (param_name, _) in &reducer.params_for_generate.elements {
+            let param_pascal = param_name.deref().to_case(Case::Pascal);
+            writeln!(output, "    Args->{} = {};", param_pascal, param_pascal);
+        }
+        writeln!(output);
+        writeln!(output, "    // Call reducer through connection");
+        writeln!(output, "    Conn->InternalCallReducer(TEXT(\"{}\"), Args, SetCallReducerFlags);", reducer_snake);
+        writeln!(output, "}}");
+        writeln!(output);
+        
+        // Invoke method implementation (following C# pattern with error handling)
+        write!(output, "bool URemoteReducers::Invoke{}(const FReducerEventContext& Context, const U{}Reducer* Args)", reducer_pascal, reducer_pascal);
+        writeln!(output);
+        writeln!(output, "{{");
+        writeln!(output, "    if (!On{}.IsBound())", reducer_pascal);
+        writeln!(output, "    {{");
+        writeln!(output, "        // Handle unhandled reducer error (like C# InternalOnUnhandledReducerError)");
+        writeln!(output, "        if (InternalOnUnhandledReducerError.IsBound())");
+        writeln!(output, "        {{");
+        writeln!(output, "            // TODO: Check Context.Event.Status for Failed/OutOfEnergy cases");
+        writeln!(output, "            // For now, just broadcast any error");
+        writeln!(output, "            InternalOnUnhandledReducerError.Broadcast(Context, TEXT(\"No handler registered for {}\"));", reducer_pascal);
+        writeln!(output, "        }}");
+        writeln!(output, "        return false;");
+        writeln!(output, "    }}");
+        writeln!(output);
+        write!(output, "    On{}.Broadcast(Context", reducer_pascal);
+        for (param_name, _) in &reducer.params_for_generate.elements {
+            let param_pascal = param_name.deref().to_case(Case::Pascal);
+            write!(output, ", Args->{}", param_pascal);
+        }
+        writeln!(output, ");");
+        writeln!(output, "    return true;");
+        writeln!(output, "}}");
+        writeln!(output);
+    }
+    
+    // Hook up error handling (like C# add => Reducers.InternalOnUnhandledReducerError += value)
+    writeln!(output, "void UDbConnection::PostInitProperties()");
+    writeln!(output, "{{");
+    writeln!(output, "    Super::PostInitProperties();");
+    writeln!(output, "    ");
+    writeln!(output, "    // Connect OnUnhandledReducerError to Reducers.InternalOnUnhandledReducerError");
+    writeln!(output, "    if (Reducers)");
+    writeln!(output, "    {{");
+    writeln!(output, "        Reducers->InternalOnUnhandledReducerError.AddDynamic(this, &UDbConnection::OnUnhandledReducerErrorHandler);");
+    writeln!(output, "    }}");
+    writeln!(output, "}}");
+    writeln!(output);
+    
+    // Error handler method  
+    writeln!(output, "UFUNCTION()");
+    writeln!(output, "void UDbConnection::OnUnhandledReducerErrorHandler(const FReducerEventContext& Context, const FString& Error)");
+    writeln!(output, "{{");
+    writeln!(output, "    if (OnUnhandledReducerError.IsBound())");
+    writeln!(output, "    {{");
+    writeln!(output, "        OnUnhandledReducerError.Broadcast(Context, Error);");
+    writeln!(output, "    }}");
+    writeln!(output, "}}");
+    writeln!(output);
+    
+    // Dispatch method (like C# protected override bool Dispatch)
+    writeln!(output, "bool UDbConnection::Dispatch(const FReducerEventContext& Context, UReducer* Reducer)");
+    writeln!(output, "{{");
+    writeln!(output, "    if (!Reducer)");
+    writeln!(output, "    {{");
+    writeln!(output, "        return false;");
+    writeln!(output, "    }}");
+    writeln!(output);
+    writeln!(output, "    // Dispatch to appropriate Invoke method (like C# reducer switch)");
+    for reducer in module.reducers() {
+        let reducer_pascal = reducer.name.deref().to_case(Case::Pascal);
+        writeln!(output, "    if (U{}Reducer* Args = Cast<U{}Reducer>(Reducer))", reducer_pascal, reducer_pascal);
+        writeln!(output, "    {{");
+        writeln!(output, "        return Reducers->Invoke{}(Context, Args);", reducer_pascal);
+        writeln!(output, "    }}");
+    }
+    writeln!(output);
+    writeln!(output, "    // Unknown reducer type");
+    writeln!(output, "    UE_LOG(LogTemp, Error, TEXT(\"Unknown reducer type in Dispatch\"));");
+    writeln!(output, "    return false;");
+    writeln!(output, "}}");
+    writeln!(output);
+    
+    // Other implementations
+    writeln!(output, "USubscriptionBuilder* UDbConnection::SubscriptionBuilder()");
+    writeln!(output, "{{");
+    writeln!(output, "    return NewObject<USubscriptionBuilder>(this);");
+    writeln!(output, "}}");
+    writeln!(output);
 }
 
 struct UnrealCppAutogen {
@@ -537,7 +787,7 @@ impl UnrealCppAutogen {
         writeln!(output, "#pragma once");
         writeln!(output, "#include \"CoreMinimal.h\"");
         for include in extra_includes { writeln!(output, "#include \"{include}\""); }
-        writeln!(output, "#include \"{self_header}.g.generated.h\""); // need to include the generated header for Unreal's reflection
+        writeln!(output, "#include \"{}.g.generated.h\"", self_header); // need to include the generated header for Unreal's reflection
         writeln!(output);
         Self { output }
     }
@@ -588,17 +838,18 @@ fn autogen_cpp_struct(
     slices.sort(); // make output deterministic
 
     // --------- start writing file ---------
-    let mut output = UnrealCppAutogen::new(&slices, name);
+    let type_name = format!("{}Type", name);
+    let mut output = UnrealCppAutogen::new(&slices, &type_name);
 
     writeln!(output, "USTRUCT(BlueprintType)");
-    writeln!(output, "struct F{}", name);
+    writeln!(output, "struct F{}Type", name);
     writeln!(output, "{{");
     output.indent(1);
     writeln!(output, "GENERATED_BODY()");
     writeln!(output);
 
     for (orig_name, ty) in product_type.into_iter() {
-        let field_name = orig_name.to_string();
+        let field_name = orig_name.deref().to_case(Case::Pascal);
         let ty_str = cpp_ty_fmt(module, ty).to_string();
         writeln!(output, "UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = \"SpacetimeDB\")");
         writeln!(output, "{} {};", ty_str, field_name);
@@ -614,9 +865,10 @@ fn autogen_cpp_struct(
 // Helper function to generate a C++ enum definition
 fn autogen_cpp_enum(name: &str, enum_type: &PlainEnumTypeDef) ->String { // Changed name to &str
     
-    let mut output = UnrealCppAutogen::new(&[], name);
+    let type_name = format!("{}Type", name);
+    let mut output = UnrealCppAutogen::new(&[], &type_name);
     writeln!(output, "UENUM(BlueprintType)");
-    writeln!(output, "enum class E{} : uint8", name);
+    writeln!(output, "enum class E{}Type : uint8", name);
     writeln!(output, "{{");
     output.indent(1);
 
@@ -709,7 +961,7 @@ fn autogen_cpp_sum(
     /* 4a. Static factories per variant -------------------------------- */
     for (variant_name, _) in &sum_type.variants {
         let pas = variant_name.to_case(Case::Pascal);
-        let fstruct = format!("F{}", pas);
+        let fstruct = format!("F{}Type", pas);
 
         writeln!(
             out,
@@ -735,7 +987,7 @@ fn autogen_cpp_sum(
     /* 4b. Get/Is helpers ---------------------------------------------- */
     for (variant_name, _) in &sum_type.variants {
         let pas = variant_name.to_case(Case::Pascal);
-        let fstruct = format!("F{}", pas);
+        let fstruct = format!("F{}Type", pas);
 
         // Is*
         writeln!(
@@ -769,194 +1021,6 @@ fn autogen_cpp_sum(
     writeln!(out, "}}; // class {}\n", name);
 
     out.into_inner()
-}
-
-
-// fn autogen_cpp_sum(
-//     module: &ModuleDef,
-//     name: &str,              // e.g. "ClientMessage"  
-//     sum_type: &SumTypeDef,
-// ) -> String {
-//     // Gather header includes for each variant payload
-//     let mut includes = HashSet::new();
-//     for (_, alg_ty) in &sum_type.variants {
-//         collect_includes_for_type(module, alg_ty, &mut includes);
-//     }
-//     let include_slices: Vec<&str> = includes.iter().map(|s| s.as_str()).collect();
-
-//     let mut output = UnrealCppAutogen::new(&include_slices, name);
-
-//     // Generate forward declarations for all variant classes
-//     writeln!(output, "// Forward declarations");
-//     for (variant_name, _) in sum_type.variants.iter() {  // Changed to use .iter() to get the right reference type
-//         let variant_class_name = format!("U{}{}Message", variant_name.to_case(Case::Pascal), name);
-//         writeln!(output, "class GAME_API {};", variant_class_name);
-//     }
-//     writeln!(output);
-
-//     // Generate the visitor interface
-//     generate_visitor_interface(&mut output, name, &sum_type.variants);
-    
-//     // Generate the base abstract class
-//     generate_base_class(&mut output, name);
-    
-//     // Generate variant classes
-//     for (variant_name, variant_ty) in sum_type.variants.iter() {  // Changed to use .iter()
-//         generate_variant_class(&mut output, module, name, variant_name, variant_ty);
-//     }
-
-//     // Generate a default visitor implementation (optional but helpful)
-//     generate_default_visitor(&mut output, name, &sum_type.variants);
-
-//     output.into_inner()
-// }
-
-fn generate_visitor_interface(
-    output: &mut UnrealCppAutogen,
-    base_name: &str,
-    variants: &[(Identifier, AlgebraicTypeUse)]  // Fixed to match actual types
-) {
-    let visitor_name = format!("U{}Visitor", base_name);
-    
-    writeln!(output, "// Visitor interface - forces you to handle all types");
-    writeln!(output, "UCLASS(Abstract)");
-    writeln!(output, "class GAME_API {} : public UObject", visitor_name);
-    writeln!(output, "{{");
-    output.indent(1);
-    
-    writeln!(output, "GENERATED_BODY()");
-    writeln!(output);
-    writeln!(output, "public:");
-    
-    // Generate pure virtual Visit methods for each variant
-    for (variant_name, _) in variants {
-        let variant_class_name = format!("U{}{}Message", variant_name.to_case(Case::Pascal), base_name);
-        writeln!(output, "virtual void Visit({}* Message) = 0;", variant_class_name);
-    }
-    
-    writeln!(output, "// Add new variants here - compiler will force you to implement them");
-    
-    output.dedent(1);
-    writeln!(output, "}};");
-    writeln!(output);
-}
-
-fn generate_base_class(output: &mut UnrealCppAutogen, base_name: &str) {
-    let base_class_name = format!("U{}", base_name);
-    let visitor_name = format!("U{}Visitor", base_name);
-    
-    writeln!(output, "// Base message class");
-    writeln!(output, "UCLASS(Abstract, BlueprintType)");
-    writeln!(output, "class GAME_API {} : public UObject", base_class_name);
-    writeln!(output, "{{");
-    output.indent(1);
-    
-    writeln!(output, "GENERATED_BODY()");
-    writeln!(output);
-    writeln!(output, "public:");
-    writeln!(output, "virtual ~{}() = default;", base_class_name);
-    writeln!(output);
-    writeln!(output, "// Pure virtual - each variant must implement");
-    writeln!(output, "virtual void Accept({}* Visitor) = 0;", visitor_name);
-    
-    output.dedent(1);
-    writeln!(output, "}};");
-    writeln!(output);
-}
-
-fn generate_variant_class(
-    output: &mut UnrealCppAutogen,
-    module: &ModuleDef,
-    base_name: &str,
-    variant_name: &Identifier,  // Fixed to match actual type
-    variant_ty: &AlgebraicTypeUse
-) {
-    let variant_class_name = format!("U{}{}Message", variant_name.to_case(Case::Pascal), base_name);
-    let base_class_name = format!("U{}", base_name);
-    let visitor_name = format!("U{}Visitor", base_name);
-    let variant_ty_str = cpp_ty_fmt(module, variant_ty).to_string();
-    
-    writeln!(output, "// {} variant", variant_name.to_case(Case::Pascal));
-    writeln!(output, "UCLASS(BlueprintType)");
-    writeln!(output, "class GAME_API {} : public {}", variant_class_name, base_class_name);
-    writeln!(output, "{{");
-    output.indent(1);
-    
-    writeln!(output, "GENERATED_BODY()");
-    writeln!(output);
-    writeln!(output, "public:");
-    
-    // Add the payload as a property
-    writeln!(output, "UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=\"SpacetimeDB\")");
-    writeln!(output, "{} Value;", variant_ty_str);
-    writeln!(output);
-    
-    // Implement the Accept method
-    writeln!(output, "virtual void Accept({}* Visitor) override", visitor_name);
-    writeln!(output, "{{");
-    output.indent(1);
-    writeln!(output, "Visitor->Visit(this);");
-    output.dedent(1);
-    writeln!(output, "}}");
-    
-    output.dedent(1);
-    writeln!(output, "}};");
-    writeln!(output);
-}
-
-fn generate_default_visitor(
-    output: &mut UnrealCppAutogen,
-    base_name: &str,
-    variants: &[(Identifier, AlgebraicTypeUse)]  // Fixed to match actual types
-) {
-    let processor_name = format!("U{}Processor", base_name);
-    let visitor_name = format!("U{}Visitor", base_name);
-    
-    writeln!(output, "// Default concrete visitor implementation");
-    writeln!(output, "UCLASS()");
-    writeln!(output, "class GAME_API {} : public {}", processor_name, visitor_name);
-    writeln!(output, "{{");
-    output.indent(1);
-    
-    writeln!(output, "GENERATED_BODY()");
-    writeln!(output);
-    writeln!(output, "public:");
-    
-    // Generate Visit method implementations
-    for (variant_name, _) in variants {
-        let variant_class_name = format!("U{}{}Message", variant_name.to_case(Case::Pascal), base_name);
-        let log_name = variant_name.to_case(Case::Pascal);
-        
-        writeln!(output, "virtual void Visit({}* Message) override", variant_class_name);
-        writeln!(output, "{{");
-        output.indent(1);
-        writeln!(output, "UE_LOG(LogTemp, Log, TEXT(\"Processing {}\"));", log_name);
-        writeln!(output, "// TODO: Handle {} logic", log_name);
-        output.dedent(1);
-        writeln!(output, "}}");
-        writeln!(output);
-    }
-    
-    output.dedent(1);
-    writeln!(output, "}};");
-    writeln!(output);
-    
-    // Generate usage example
-    generate_usage_example(output, base_name);
-}
-
-fn generate_usage_example(output: &mut UnrealCppAutogen, base_name: &str) {
-    let base_class_name = format!("U{}", base_name);
-    let processor_name = format!("U{}Processor", base_name);
-    
-    writeln!(output, "// Usage example");
-    writeln!(output, "void Process{}({}* Message)", base_name, base_class_name);
-    writeln!(output, "{{");
-    output.indent(1);
-    writeln!(output, "{}* Processor = NewObject<{}>();", processor_name, processor_name);
-    writeln!(output, "Message->Accept(Processor);");
-    output.dedent(1);
-    writeln!(output, "}}");
 }
 
 // Helper trait for Identifier case conversion
@@ -1016,10 +1080,11 @@ fn cpp_ty_fmt<'a>(
             let scoped = type_ref_name(module, *r);               // PascalCase
             match &module.typespace_for_generate()[*r] {
                 AlgebraicTypeDef::PlainEnum(_) =>
-                    write!(f, "E{}", scoped),                     // enum → EFoo
-                AlgebraicTypeDef::Product(_) |
-                AlgebraicTypeDef::Sum(_)       =>
-                    write!(f, "F{}", scoped),                     // struct/record → FFoo
+                    write!(f, "E{}Type", scoped),                 // enum → EFooType
+                AlgebraicTypeDef::Product(_) =>
+                    write!(f, "F{}Type", scoped),                 // struct/record → FFooType
+                AlgebraicTypeDef::Sum(_) =>
+                    write!(f, "U{}", scoped),                     // sum type → UFoo (UClass)
             }
         }
 
@@ -1042,7 +1107,7 @@ fn collect_includes_for_type(
     use AlgebraicTypeUse::*;
     match ty {
         Ref(r) => {
-            let header = format!("{}.g.h", type_ref_name(module, *r));
+            let header = format!("Types/{}Type.g.h", type_ref_name(module, *r));
             out.insert(header);
         }
         Option(inner) | Array(inner) => {
